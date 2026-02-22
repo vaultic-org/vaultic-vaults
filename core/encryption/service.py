@@ -284,9 +284,13 @@ class EncryptionService:
         test_path.write_bytes(encrypted)
         print(f"Test file created with size: {len(encrypted)} bytes")
 
-    def verify_passphrase(self):
+    def verify_passphrase(self, keep_passphrase: bool = False):
         """
         Verify the correctness of the passphrase.
+
+        Args:
+            keep_passphrase: If True, do not clear the passphrase after verification.
+                             Useful for GUI sessions that need continued access.
 
         Raises:
             ValueError: If the passphrase is incorrect or metadata is corrupted
@@ -321,8 +325,8 @@ class EncryptionService:
             print(f"Exception during verification: {type(e).__name__}: {str(e)}")
             raise ValueError(f"Invalid passphrase or corrupted metadata: {str(e)}")
 
-        # Now that verification is complete, we can clear the passphrase
-        self._secure_clear_passphrase()
+        if not keep_passphrase:
+            self._secure_clear_passphrase()
 
     def create_encrypted_archive(
         self, files: Dict[str, bytes], output_path: Path

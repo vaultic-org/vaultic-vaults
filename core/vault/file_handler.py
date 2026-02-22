@@ -112,6 +112,7 @@ def encrypt_and_store_file(
     provider,
     index_manager: VaultIndexManager,
     duplicate_action: Optional[FileAction] = None,
+    keep_source: bool = False,
 ) -> Union[bool, str]:
     """
     Encrypt and store a file in the vault. If a file with the same name exists,
@@ -239,13 +240,13 @@ def encrypt_and_store_file(
             print(f"[red]❌ Error saving index: {e}[/red]")
             return False
 
-        # Securely delete original file
-        try:
-            secure_delete(src_path)
-            print(f"[green]✓ Original file deleted: {src_path}[/green]")
-        except Exception as e:
-            print(f"[yellow]⚠️ Could not delete original file: {e}[/yellow]")
-            # Continue anyway as the file is already encrypted
+        # Securely delete original file unless keep_source is set
+        if not keep_source:
+            try:
+                secure_delete(src_path)
+                print(f"[green]✓ Original file securely deleted: {src_path}[/green]")
+            except Exception as e:
+                print(f"[yellow]⚠️ Could not delete original file: {e}[/yellow]")
 
         return encrypted_filename
 

@@ -93,18 +93,23 @@ def secure_delete(path: Path, passes: int = 3) -> None:
         # Get file size
         file_size = path.stat().st_size
 
-        # Skip secure deletion for very large files (performance)
-        # or zero-byte files (no data to overwrite)
-        if file_size == 0 or file_size > 100 * 1024 * 1024:  # 100 MB
+        if file_size == 0:
             path.unlink()
             return
 
-        # Adjust number of passes based on drive type
+        # Files larger than 100 MB are only deleted (not overwritten) for performance.
+        # On most drives the data may still be recoverable at the hardware level.
+        if file_size > 100 * 1024 * 1024:
+            print(
+                f"[yellow]⚠️  File too large for secure overwrite ({file_size // (1024*1024)} MB > 100 MB).[/yellow]\n"
+                "    The file will be deleted but residual data may persist on disk.\n"
+                "    For full security, use full-disk encryption or a dedicated tool (e.g. shred, srm)."
+            )
+            path.unlink()
+            return
+
         if not is_rotational(path):
-            passes = 1  # Single pass for SSD
-            print(f"[blue]Using single pass for SSD: {path}[/blue]")
-        else:
-            print(f"[blue]Using {passes} passes for HDD: {path}[/blue]")
+            passes = 1
 
         # Overwrite with random data
         with open(path, "r+b") as f:

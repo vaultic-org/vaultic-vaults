@@ -104,22 +104,16 @@ def list_vaults(passphrase: Optional[str] = None) -> List[Dict]:
         List[Dict]: List of vault information dictionaries.
         Each dict contains an additional 'decrypted' boolean field indicating if the index was successfully decrypted.
     """
+    import io
+    import contextlib
+
     vaults = []
     vault_root = get_vaults_directory()
 
     if not vault_root.exists():
         return vaults
 
-    # Disable standard output if passphrase is provided to hide encryption messages
-    original_print = None
-    if passphrase:
-        import builtins
-
-        original_print = builtins.print
-        builtins.print = lambda *args, **kwargs: None
-
-    try:
-        for vault_dir in vault_root.iterdir():
+    for vault_dir in vault_root.iterdir():
             if not vault_dir.is_dir() or vault_dir.name.startswith("."):
                 continue
 
@@ -154,23 +148,18 @@ def list_vaults(passphrase: Optional[str] = None) -> List[Dict]:
                         from core.encryption.service import EncryptionService
                         from core.vault.index_manager import VaultIndexManager
 
-                        # Try to decrypt the index with the provided passphrase
-                        enc_service = EncryptionService(passphrase, meta_path)
-
-                        # Verify passphrase silently
-                        try:
-                            enc_service.verify_passphrase()
-
-                            # If valid, load and count entries in the index
-                            index_manager = VaultIndexManager(enc_service, vault_dir)
-                            index = index_manager.load()
-                            file_count = len(index)
-                            decrypted = True  # Mark as successfully decrypted
-                        except Exception:
-                            # Passphrase verification failed, will fall back to metadata
-                            pass
+                        # Suppress verbose internal prints during silent verification
+                        with contextlib.redirect_stdout(io.StringIO()):
+                            enc_service = EncryptionService(passphrase, meta_path)
+                            try:
+                                enc_service.verify_passphrase()
+                                index_manager = VaultIndexManager(enc_service, vault_dir)
+                                index = index_manager.load()
+                                file_count = len(index)
+                                decrypted = True
+                            except Exception:
+                                pass
                     except Exception:
-                        # Decryption failed, will fall back to metadata
                         pass
 
                 # If no file count from index, use metadata
@@ -190,16 +179,9 @@ def list_vaults(passphrase: Optional[str] = None) -> List[Dict]:
                     }
                 )
             except Exception as e:
-                if original_print:
-                    original_print(
-                        f"[yellow]⚠️ Error reading vault metadata for {vault_dir.name}: {str(e)}[/yellow]"
-                    )
-    finally:
-        # Restore original print function
-        if original_print:
-            import builtins
-
-            builtins.print = original_print
+                print(
+                    f"[yellow]⚠️ Error reading vault metadata for {vault_dir.name}: {str(e)}[/yellow]"
+                )
 
     return vaults
 
